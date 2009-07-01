@@ -33,10 +33,9 @@ class Template:
         """
         Constructor accepts either file name
         or template string
-        """ 
+        """
         if os.path.exists(input):
-            self.filename = input
-            self.template = open(self.filename, 'r').read()
+            self.template = open(input, 'r').read()
         else:
             self.template = input
 
@@ -50,10 +49,10 @@ class Template:
         self.rep_start_len = len(self.token_rep_start)
         self.rep_end_len = len(self.token_rep_end)
 
-        self.tokenize()
+        self.tokenize(0, 0, [])
 
         if len(self.tokens):
-            self.prepare()
+            self.prepare(0, {}, [])
 
     def tag_name_get(self, token, type):
         """
