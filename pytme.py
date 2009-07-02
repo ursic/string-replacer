@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# coding=utf8
 """
 pytme - Tiny Template Engine
 
