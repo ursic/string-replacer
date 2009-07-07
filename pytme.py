@@ -181,7 +181,7 @@ class Template:
         for atom in self.tags:
             if self.tags[atom][4] == token:
                 content = content.replace(self.tags[atom][2],
-                                          self.tags[atom][3])
+                                          str(self.tags[atom][3]))
                 self.tags[atom][3] = ''
 
         ## append new content to repeater content
