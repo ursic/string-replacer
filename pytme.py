@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding=utf8
 """
-pytme - Tiny Template Engine
+pytme - String replacer
 
 Copyright 2009 Mitja Ursic
 
