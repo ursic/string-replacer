@@ -1,8 +1,0 @@
-pytme - Tiny Template Engine for Python
-
-pytme has two basic functions:
-1) replace single tags in template
-2) insert multiple chunks of content by repeaters
-   Repeaters can be nested.
-
-See example.py for usage.
