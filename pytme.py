@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # coding=utf8
 """
-pytme - String replacer
+String replacer for HTML templating
 
-2009 Mitja Ursic
+odtihmal@gmail.com
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,272 +16,126 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-"""
 
+Example usage:
+t = pytme.Template(<TEMPLATE_FILE_PATH> or <TEMPLATE_STRING>)
+
+# Insert single data point.
+t.insert('TITLE', 'Article title')
+# Insert repeater.
+t.insert('ARTICLE')
+
+# Write to file.
+t.write(<SAVE_TO_PATH>)
+
+# Get template string.
+t.get()
+"""
 import os.path
+
+
+# Return locations of all needles in given haystack.
+def find_locs(needle, haystack):
+    curr_loc = 0
+    while True:
+        loc = haystack.find(needle, curr_loc)
+        if -1 == loc: return
+        yield loc
+        curr_loc = loc + len(needle)
 
 
 class Template:
     """
-    String replacement class
-    Atom token is a standalone template tag
-    to be replaced by a value
-    Repeater block is embraced by
-    _START and _END markers which content is
-    to be repeated multiple times
     """
-    def __init__(self, input, tag_brace='##'):
+    def __init__(self, path_or_str, brace = '##'):
         """
         Constructor accepts either file name
         or template string
         """
-        if os.path.exists(input):
-            self.template = open(input, 'r').read()
+        if os.path.exists(path_or_str):
+            self.t = open(path_or_str, 'r').read()
         else:
-            self.template = input
+            self.t = path_or_str
 
-        if not tag_brace or len(tag_brace) < 1:
-            tag_brace = '##'
+        if not brace or len(brace) < 1:
+            brace = '##'
 
-        self.token_brace = tag_brace
-        self.token_brace_len = len(self.token_brace)
-        self.token_rep_start = '_START' + self.token_brace
-        self.token_rep_end = '_END' + self.token_brace
-        self.rep_start_len = len(self.token_rep_start)
-        self.rep_end_len = len(self.token_rep_end)
+        self.brace = brace
+        self.rep_start = '_START' + self.brace
+        self.rep_end = '_END' + self.brace
+        self.repeaters = {}
 
-        self.tokenize(0, 0, [])
-
-        if len(self.tokens):
-            self.prepare(0, {}, [])
-
-    def tag_name_get(self, token, type):
-        """
-        Append meta data to token and return it
-        """
-        if 'atom' == type:
-            return self.token_brace + token + self.token_brace
-
-        if 'start' == type:
-            return self.token_brace + token + self.token_rep_start
-        if 'end' == type:
-            return self.token_brace + token + self.token_rep_end
+        self.repeaters = self.extract_reps(self.t)
 
 
-    def token_name_get(self, tag, type):
-        """
-        Strip meta data from tag and return it
-        """
-        if 'atom' == type:
-            return tag[self.token_brace_len:len(tag) -\
-                             self.token_brace_len]
-        if 'start' == type:
-            return tag[self.token_brace_len:len(tag) -\
-                            self.rep_start_len]
-        if 'end' == type:
-            return tag[self.token_brace_len:len(tag) -\
-                            self.rep_end_len]
-    
+    # Extract and return repeaters in haystack.
+    def extract_reps(self, haystack):
+        reps = {}
+        # Find repeater names and their content.
+        for rep in list(find_locs(self.rep_start, haystack)):
+            min_pos = rep - 1
+            i = 1
+            m = None
+            # Find its beginning.
+            while (self.brace != m):
+                m = haystack[min_pos - (i + len(self.brace)):min_pos - i]
+                i += 1
 
-    def tokenize(self, start_pos=0, npass=0, tokens=[]):
-        """
-        Figure out where all template tags are
-        and store their names, start and end positions in array
-        """
-        next_pos = self.template.find(self.token_brace, start_pos +\
-                                          self.token_brace_len)
-        if -1 == next_pos:
-            self.tokens = tokens
-            return
-
-        ## find valid either start or end tag position
-        ## start position
-        if 0 == npass % 2:
-            tokens.append([0,0,''])
-            tokens[len(tokens) - 1][0] = next_pos
-        ## end position
-        else:
-            pos_start = tokens[len(tokens) - 1][0]
-            tokens[len(tokens) - 1][1] = pos_start
-            pos_end = next_pos + self.token_brace_len
-            tag = self.template[pos_start:pos_end]
-            tokens[len(tokens) - 1][2] = tag
-
-        self.tokenize(next_pos, npass + 1, tokens)
+            # Extract its name.
+            start_pos = rep - (i + len(self.brace))
+            start = haystack[start_pos:rep] + self.rep_start
+            name = start[len(self.brace):-len(self.rep_start)]
+            end = self.brace + name + self.rep_end
+            # Look for matching end tag.
+            if -1 == haystack.find(end): continue
+            # Extract its content.
+            reps[name] = haystack[(start_pos):(haystack.find(end) + len(end))]
+                
+        return reps
 
 
-    def prepare(self,
-                ntoken=0,
-                tags={},
-                curr_rep=[]):
-        """
-        Separate tokens into atoms
-        and repeater blocks
-        """
-        curr_token = self.tokens[ntoken]
-        curr_token_name = curr_token[2]
-        rep_diff = len(curr_token_name) - self.rep_start_len
-        start_maybe = curr_token_name[rep_diff:len(curr_token_name)]
-        rep_diff = len(curr_token_name) - self.rep_end_len
-        end_maybe = curr_token_name[rep_diff:len(curr_token_name)]
-
-        ## we have start of the repeater
-        if start_maybe == self.token_rep_start:
-            token_name = self.token_name_get(curr_token_name, 'start')
-            rep_last = curr_rep[-1] if len(curr_rep) else None
-            tags[token_name] = ['r',
-                                curr_token[0] +\
-                                    len(curr_token_name),
-                                '',
-                                '',
-                                rep_last]
-            curr_rep.append(token_name)
-        ## we have end of the repeater
-        elif end_maybe == self.token_rep_end:
-            token_name = self.token_name_get(curr_token_name, 'end')
-            start = tags[token_name][1]
-            end = curr_token[1]
-            ## save blank repeater
-            tags[token_name][2] = self.template[start:end]
-            curr_rep.pop()
-        ## we have single tag
-        else:
-            token_name = self.token_name_get(curr_token_name, 'atom')
-            rep_last = curr_rep[-1] if len(curr_rep) else None
-            tags[token_name] = ['a',
-                                0,
-                                curr_token_name,
-                                '',
-                                rep_last]
-        ntoken += 1
-        if (len(self.tokens) - 1) < ntoken:
-            self.tags = tags
-            return
-
-        self.prepare(ntoken, tags, curr_rep)
+    # Remove repeaters in haystack.
+    # Return haystack.
+    def remove_reps(self, haystack):
+        for name, block in self.extract_reps(haystack).items():
+            haystack = haystack.replace(block, '')
+        return haystack
 
 
-    def atom_insert(self, token, content):
-        """
-        Add content to given token
-        """
-        for token_name in self.tags:
-            if (token_name == token):
-                self.tags[token][3] = content
+    # Replace either single tag with given string.
+    # Or a repeater.
+    def insert(self, rep, replacement = None):
+        # Replace single tags.
+        if None != replacement:
+            tag = self.brace + rep + self.brace
+            self.t = self.t.replace(tag, str(replacement))
 
-
-    def block_insert(self, token, content):
-        """
-        Add content to given block
-        """
-        block = self.tags[token]
-        blank = block[2]
-        content = blank
-        ## replace tags with atom content
-        for atom in self.tags:
-            if self.tags[atom][4] == token:
-                content = content.replace(self.tags[atom][2],
-                                          str(self.tags[atom][3]))
-                self.tags[atom][3] = ''
-
-        ## append new content to repeater content
-        self.tags[token][3] += content
-        
-
-    def insert(self, token, content=None):
-        """
-        Build content for given token
-        """
-        if not hasattr(self, 'tags'):
-            return
-        if not self.tags.has_key(token):
-            return
-
-        ## single tag
-        if content:
-            self.atom_insert(token, content)
-        ## repeater block
-        else:
-            self.block_insert(token, content)
-
-
-    def replace_atom(self, tag):
-        """
-        Replace template tag with its content
-        """
-        blank = self.tags[tag][2]
-        content = self.tags[tag][3]
-        self.template = self.template.replace(blank,
-                                              content)
-
-
-    def replace_block(self, tag):
-        """
-        Replace template block with its content
-        """
-        tag_start = self.tag_name_get(tag, 'start')
-        tag_end = self.tag_name_get(tag, 'end')
-        start = self.template.find(tag_start)
-        end = self.template.find(tag_end) + len(tag_end)
-        content = self.tags[tag][3]
-        part_1 = self.template[:start]
-        part_2 = self.template[end:]
-        self.template = part_1 + content + part_2
-
-
-    def replace(self):
-        """
-        Replace root tags and repeater blocks
-        with their values
-        """
-        if not hasattr(self, 'tags'):
-            return
-        
-        for tag in self.tags:
-            ## process root tags
-            if not self.tags[tag][4]:
-                ## replace single tag (atom)
-                if 'a' == self.tags[tag][0]:
-                    self.replace_atom(tag)
-                ## replace repeater block
-                if 'r' == self.tags[tag][0]:
-                    self.replace_block(tag)
-
-
-    def clean(self):
-        """
-        Remove all blocks and template tags
-        """
-        for token in self.tokens:
-            self.template = self.template.replace(token[2], '')
-
-
-    def process(self):
-        """
-        Produce final output and
-        clean it up
-        """
-        
-        if hasattr(self, 'output'):
-            return
-
-        self.replace()
-        self.clean()
-        self.output = self.template
+        # Fill blank repeater.
+        # Insert filled block into the template.
+        # Append blank repeater at the end of insertion.
+        elif rep in self.repeaters:
+            start = self.brace + rep + self.rep_start
+            end = self.brace + rep + self.rep_end
+            start_pos = self.t.find(start) + len(start)
+            end_pos = self.t.find(end)
+            content = self.remove_reps(self.t[start_pos:end_pos]) + self.repeaters[rep]
+            start_pos -= len(start)
+            end_pos += len(end)
+            self.t = self.t[:start_pos] + content + self.t[end_pos:]
 
 
     def get(self):
         """
-        Return processed template string
+        Return clean template string.
         """
-        self.process()
-        return self.output
+        output = self.remove_reps(self.t)
+        return output
 
 
     def write(self, filename):
         """
-        Write processed template string into
-        file with given filename
+        Write clean template string into
+        filename.
         """
-        self.process()
-        self.template = open(filename, 'w').write(self.output)
+        self.t = self.remove_reps(self.t)
+        open(filename, 'w').write(self.t)
