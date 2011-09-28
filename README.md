@@ -4,7 +4,7 @@ Example usage:
 
     t = Template(<TEMPLATE_FILE_PATH> or <TEMPLATE_STRING>)
 
-    # Insert single data point.
+    # Insert datum.
     t.insert('TITLE', 'Article title')
 
     # Insert repeater.
