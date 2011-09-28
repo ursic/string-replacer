@@ -137,5 +137,4 @@ class Template:
         Write clean template string into
         filename.
         """
-        self.t = self.remove_reps(self.t)
-        open(filename, 'w').write(self.t)
+        open(filename, 'w').write(self.remove_reps(self.t))
