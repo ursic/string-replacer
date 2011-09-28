@@ -2,7 +2,7 @@ String replacer for HTML templating
 
 Example usage:
 
-    t = pytme.Template(<TEMPLATE_FILE_PATH> or <TEMPLATE_STRING>)
+    t = Template(<TEMPLATE_FILE_PATH> or <TEMPLATE_STRING>)
 
     # Insert single data point.
     t.insert('TITLE', 'Article title')
