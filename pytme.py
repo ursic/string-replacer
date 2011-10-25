@@ -45,8 +45,6 @@ def find_locs(needle, haystack):
 
 
 class Template:
-    """
-    """
     def __init__(self, path_or_str, brace = '##'):
         """
         Constructor accepts either file name
